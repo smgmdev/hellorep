@@ -250,39 +250,6 @@ export default function Console() {
     );
   }
 
-  // Category selection screen
-  if (!activeSourceId) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background gap-6 px-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
-          <Command className="h-8 w-8 text-primary" />
-        </div>
-
-        <div className="space-y-2 max-w-sm text-center">
-          <h1 className="font-mono text-2xl font-semibold text-foreground tracking-tight">
-            SELECT_CATEGORY
-          </h1>
-          <p className="text-sm text-muted-foreground font-mono">
-            Choose a data source to search
-          </p>
-        </div>
-
-        <div className="flex gap-3">
-          {sources.map((source) => (
-            <Button
-              key={source.id}
-              onClick={() => handleSelectSource(source.id)}
-              className="font-mono"
-              data-testid={`button-select-${source.id}`}
-            >
-              &lt;{source.name}&gt;
-            </Button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background">
       {/* Instruction Screen */}
@@ -325,6 +292,9 @@ export default function Console() {
         }}
         onSort={() => {}}
         currentView="cards"
+        sources={sources}
+        activeSourceId={activeSourceId}
+        onSourceChange={handleSelectSource}
       />
 
       {/* Settings Dialog */}
@@ -425,17 +395,6 @@ export default function Console() {
         data-testid="button-settings"
       >
         <Settings className="h-5 w-5" />
-      </Button>
-
-      {/* Category Switch Button - Bottom Left */}
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => setActiveSourceId(null)}
-        className="fixed bottom-4 left-4 font-mono text-xs"
-        data-testid="button-switch-category"
-      >
-        SWITCH_CATEGORY
       </Button>
     </div>
   );

@@ -16,10 +16,18 @@ import {
   ArrowUpDown,
   Terminal,
   FileText,
+  Layers,
 } from "lucide-react";
 
 export interface DataRow {
   [key: string]: string | number | boolean | undefined;
+}
+
+interface DataSource {
+  id: string;
+  name: string;
+  url: string;
+  type: "script" | "sheets";
 }
 
 interface CommandPaletteProps {
@@ -33,6 +41,9 @@ interface CommandPaletteProps {
   onRowSelect: (row: DataRow) => void;
   onSort: (column: string) => void;
   currentView: "cards" | "table";
+  sources?: DataSource[];
+  activeSourceId?: string | null;
+  onSourceChange?: (sourceId: string) => void;
 }
 
 export function CommandPalette({
@@ -46,6 +57,9 @@ export function CommandPalette({
   onRowSelect,
   onSort,
   currentView,
+  sources = [],
+  activeSourceId,
+  onSourceChange,
 }: CommandPaletteProps) {
   const [search, setSearch] = useState("");
 
@@ -160,6 +174,30 @@ export function CommandPalette({
 
         {!search && (
           <>
+            {sources.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading="SWITCH_SOURCE">
+                  {sources.map((source) => (
+                    <CommandItem
+                      key={source.id}
+                      onSelect={() => {
+                        onSourceChange?.(source.id);
+                        setSearch("");
+                      }}
+                      data-testid={`command-source-${source.id}`}
+                    >
+                      <Layers className="mr-2 h-4 w-4 text-accent" />
+                      <span>&lt;{source.name}&gt;</span>
+                      {activeSourceId === source.id && (
+                        <span className="ml-auto text-xs text-muted-foreground">✓ ACTIVE</span>
+                      )}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </>
+            )}
+
             <CommandSeparator />
             <CommandGroup heading="COMMANDS">
               <CommandItem
