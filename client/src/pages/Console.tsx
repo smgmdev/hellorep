@@ -23,7 +23,7 @@ interface DataSource {
   id: string;
   name: string;
   url: string;
-  type: "script" | "sheets" | "game";
+  type: "script" | "sheets" | "game" | "trade";
 }
 
 const DEFAULT_SOURCES: DataSource[] = [
@@ -38,6 +38,12 @@ const DEFAULT_SOURCES: DataSource[] = [
     name: "Fashion",
     url: "https://docs.google.com/spreadsheets/d/1p2cGXEEdCoEG9hCBKEhxcQVCuiAhX9T5d87yrQ3H8BY/edit?gid=1786404372#gid=1786404372",
     type: "sheets",
+  },
+  {
+    id: "trade",
+    name: "Trade",
+    url: "https://go.stankeviciusinternational.com",
+    type: "trade",
   },
   {
     id: "playsolana",
@@ -106,6 +112,61 @@ export default function Console() {
     return rows;
   };
 
+  // Fetch from trade website
+  const fetchTradeDeals = async (baseUrl: string): Promise<Product[]> => {
+    try {
+      // Try to fetch from an API endpoint first
+      const apiUrl = `${baseUrl}/api/deals`;
+      const response = await fetch(apiUrl);
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (Array.isArray(result)) return result;
+        if (result.deals && Array.isArray(result.deals)) return result.deals;
+        if (result.data && Array.isArray(result.data)) return result.data;
+      }
+    } catch (err) {
+      // If API fails, try alternative endpoint
+    }
+
+    // Try alternative API endpoint
+    try {
+      const altUrl = `${baseUrl}/api/trade-deals`;
+      const response = await fetch(altUrl);
+      if (response.ok) {
+        const result = await response.json();
+        if (Array.isArray(result)) return result;
+        if (result.deals && Array.isArray(result.deals)) return result.deals;
+        if (result.data && Array.isArray(result.data)) return result.data;
+      }
+    } catch (err) {
+      // Continue to next attempt
+    }
+
+    // Try main endpoint as JSON
+    try {
+      const response = await fetch(baseUrl);
+      if (response.ok) {
+        const text = await response.text();
+        // Try to extract JSON from the page
+        const jsonMatch = text.match(/window\.__DATA__\s*=\s*({[\s\S]*?});/) ||
+                         text.match(/<script[^>]*>([\s\S]*?"deals"[\s\S]*?)<\/script>/i);
+        
+        if (jsonMatch) {
+          const jsonStr = jsonMatch[1] || jsonMatch[0];
+          const data = JSON.parse(jsonStr);
+          if (data.deals && Array.isArray(data.deals)) return data.deals;
+          if (data.data && Array.isArray(data.data)) return data.data;
+          if (Array.isArray(data)) return data;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to parse trade data:", err);
+    }
+
+    throw new Error("Could not fetch trade deals from the website");
+  };
+
   const fetchData = useCallback(async (source?: DataSource) => {
     const sourceToUse = source || activeSource;
     if (!sourceToUse) return;
@@ -130,6 +191,8 @@ export default function Console() {
         }
       } else if (sourceToUse.type === "sheets") {
         dataArray = await fetchFromGoogleSheets(sourceToUse.url);
+      } else if (sourceToUse.type === "trade") {
+        dataArray = await fetchTradeDeals(sourceToUse.url);
       }
 
       if (dataArray.length > 0) {
