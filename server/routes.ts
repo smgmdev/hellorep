@@ -66,91 +66,90 @@ export async function registerRoutes(
         const response = await fetch(baseUrl);
         if (response.ok) {
           const html = await response.text();
-          const $ = cheerio.load(html);
           const trades: any[] = [];
 
-          // Parse trade cards from the HTML
-          // Look for trade article sections
-          $("article").each((idx, element) => {
-            const $article = $(element);
-            
-            // Extract trade information
-            const title = $article.find("h2, h3").text().trim() || `Trade ${idx + 1}`;
-            const status = $article.text().includes("BUYING")
-              ? "BUYING"
-              : "SELLING";
-            
-            // Extract category - look for elements that might contain category
-            const category = $article
-              .find("[data-testid*='category'], .category, .type")
-              .text()
-              .trim();
+          // Split by trade blocks - look for patterns like "# Title" followed by SELLING/BUYING
+          const lines = html.split("\n");
+          let currentTrade: any = null;
 
-            // Extract details from text
-            const text = $article.text();
-            const quantity =
-              text.match(/Quantity:\s*([^\n]+)/)?.[1]?.trim() || "N/A";
-            const price = text.match(/Price:\s*([\d,.\s\w]+)/)?.[1]?.trim() || "N/A";
-            const contract =
-              text.match(/Contract:\s*([^\n]+)/)?.[1]?.trim() || "N/A";
-            const delivery =
-              text.match(/Delivery Term:\s*([^\n]+)/)?.[1]?.trim() || "N/A";
-            const payment =
-              text.match(/Payment:\s*([^\n]+)/)?.[1]?.trim() || "N/A";
-            const origin = text.match(/Origin:\s*([^\n]+)/)?.[1]?.trim() || "N/A";
-            const currentLocation =
-              text.match(/Current Location:\s*([^\n]+)/)?.[1]?.trim() || "N/A";
-            const deliveryLocation =
-              text.match(/Delivery Location:\s*([^\n]+)/)?.[1]?.trim() || "N/A";
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
 
-            trades.push({
-              title,
-              status,
-              category: category || "Commodities",
-              quantity,
-              price,
-              contract,
-              deliveryTerm: delivery,
-              payment,
-              origin,
-              currentLocation,
-              deliveryLocation,
-            });
-          });
+            // Match trade title (lines starting with # like "# Frozen Chicken Feet")
+            const titleMatch = line.match(/^#+\s+(.+)$/);
+            if (titleMatch) {
+              // Save previous trade if exists
+              if (
+                currentTrade &&
+                currentTrade.title &&
+                (currentTrade.price || currentTrade.quantity)
+              ) {
+                trades.push(currentTrade);
+              }
+              currentTrade = { title: titleMatch[1].trim() };
+              continue;
+            }
+
+            // Match status (SELLING, BUYING)
+            if (line === "SELLING" || line === "BUYING") {
+              if (currentTrade) {
+                currentTrade.status = line;
+              }
+              continue;
+            }
+
+            // Match category
+            const categoryMatch = line.match(
+              /^(Carbon Credits|Agriculture|Metals|Energy|EV|Chemicals|Construction|Defense|Medical & PPE|Meats & Livestock|Pharmaceuticals|Seafood|Softs|Office Supplies|Water|Delicacy Foods|Alcoholic Beverage|Skincare & Personal Care)$/
+            );
+            if (categoryMatch && currentTrade) {
+              currentTrade.category = categoryMatch[1];
+              continue;
+            }
+
+            // Extract fields
+            if (currentTrade) {
+              const quantityMatch = line.match(/Quantity:\s*(.+)/);
+              if (quantityMatch) currentTrade.quantity = quantityMatch[1].trim();
+
+              const contractMatch = line.match(/Contract:\s*(.+)/);
+              if (contractMatch) currentTrade.contract = contractMatch[1].trim();
+
+              const deliveryMatch = line.match(/Delivery Term:\s*(.+)/);
+              if (deliveryMatch)
+                currentTrade.deliveryTerm = deliveryMatch[1].trim();
+
+              const currentLocMatch = line.match(/Current Location:\s*(.+)/);
+              if (currentLocMatch)
+                currentTrade.currentLocation =
+                  currentLocMatch[1].trim();
+
+              const deliveryLocMatch = line.match(/Delivery Location:\s*(.+)/);
+              if (deliveryLocMatch)
+                currentTrade.deliveryLocation = deliveryLocMatch[1].trim();
+
+              const paymentMatch = line.match(/Payment:\s*(.+)/);
+              if (paymentMatch) currentTrade.payment = paymentMatch[1].trim();
+
+              const originMatch = line.match(/Origin:\s*(.+)/);
+              if (originMatch) currentTrade.origin = originMatch[1].trim();
+
+              const priceMatch = line.match(/Price:\s*(.+)/);
+              if (priceMatch) currentTrade.price = priceMatch[1].trim();
+            }
+          }
+
+          // Add last trade
+          if (
+            currentTrade &&
+            currentTrade.title &&
+            (currentTrade.price || currentTrade.quantity)
+          ) {
+            trades.push(currentTrade);
+          }
 
           if (trades.length > 0) {
             return res.json(trades);
-          }
-
-          // Alternative: try to extract from Live Trade Quotes section
-          const liveQuotes: any[] = [];
-          $("h3").each((idx, element) => {
-            const text = $(element).text().trim();
-            const parentText = $(element).parent().text();
-            
-            if (
-              text.length > 0 &&
-              (text.match(/\d+/g) || parentText.includes("USD") || parentText.includes("EUR"))
-            ) {
-              const quantity =
-                parentText.match(/Quantity:\s*([^\n]+)/)?.[1]?.trim() || "N/A";
-              const price = parentText
-                .match(/([\d,]+\s*[A-Z]{3})/)?.[1]
-                ?.trim() || "N/A";
-
-              if (price !== "N/A") {
-                liveQuotes.push({
-                  title: text,
-                  price,
-                  quantity,
-                  status: parentText.includes("Sell") ? "BUYING" : "SELLING",
-                });
-              }
-            }
-          });
-
-          if (liveQuotes.length > 0) {
-            return res.json(liveQuotes);
           }
 
           res.status(404).json({
