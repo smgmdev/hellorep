@@ -74,7 +74,7 @@ export function CommandPalette({
   };
 
   const filteredData = useMemo(() => {
-    if (!search.trim()) return data.slice(0, 15);
+    if (!search.trim()) return [];
     const searchLower = search.toLowerCase();
     return data
       .filter((row) => {
@@ -103,111 +103,73 @@ export function CommandPalette({
         data-testid="input-command"
       />
       <CommandList>
-        <CommandEmpty>
-          <div className="flex flex-col items-center py-6 text-muted-foreground font-mono">
-            <Terminal className="h-8 w-8 mb-2 opacity-50" />
-            <span className="text-sm">NO_RESULTS_FOUND</span>
-            <span className="text-xs text-muted-foreground mt-1">// Try a different search term</span>
-          </div>
-        </CommandEmpty>
-
-        <CommandGroup heading="COMMANDS">
-          <CommandItem
-            onSelect={() => {
-              onRefresh();
-              onOpenChange(false);
-            }}
-            data-testid="command-refresh"
-          >
-            <RefreshCw className="mr-2 h-4 w-4 text-primary" />
-            <span>Refresh Data</span>
-            <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-              R
-            </kbd>
-          </CommandItem>
-          <CommandItem
-            onSelect={() => {
-              onViewChange(currentView === "cards" ? "table" : "cards");
-              onOpenChange(false);
-            }}
-            data-testid="command-toggle-view"
-          >
-            {currentView === "cards" ? (
-              <TableIcon className="mr-2 h-4 w-4 text-primary" />
-            ) : (
-              <LayoutGrid className="mr-2 h-4 w-4 text-primary" />
-            )}
-            <span>Switch to {currentView === "cards" ? "Table" : "Grid"} View</span>
-            <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-              V
-            </kbd>
-          </CommandItem>
-          <CommandItem
-            onSelect={() => {
-              onOpenChange(false);
-              setTimeout(() => {
-                const searchInput = document.querySelector('[data-testid="input-media-search"]') as HTMLInputElement;
-                searchInput?.focus();
-              }, 100);
-            }}
-            data-testid="command-focus-search"
-          >
-            <Search className="mr-2 h-4 w-4 text-primary" />
-            <span>Focus Search Bar</span>
-            <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-              /
-            </kbd>
-          </CommandItem>
-        </CommandGroup>
-
-        {columns.length > 0 && (
-          <>
-            <CommandSeparator />
-            <CommandGroup heading="SORT BY">
-              {columns.slice(0, 5).map((col) => (
-                <CommandItem
-                  key={col}
-                  onSelect={() => {
-                    onSort(col);
-                    onOpenChange(false);
-                  }}
-                  data-testid={`command-sort-${col}`}
-                >
-                  <ArrowUpDown className="mr-2 h-4 w-4 text-accent" />
-                  <span>{formatColumnName(col)}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </>
+        {!search && (
+          <CommandEmpty>
+            <div className="flex flex-col items-center py-6 text-muted-foreground font-mono">
+              <Terminal className="h-8 w-8 mb-2 opacity-50" />
+              <span className="text-sm">TYPE_TO_SEARCH</span>
+              <span className="text-xs text-muted-foreground mt-1">// Search by title or content</span>
+            </div>
+          </CommandEmpty>
         )}
 
-        {filteredData.length > 0 && (
-          <>
-            <CommandSeparator />
-            <CommandGroup heading="MEDIA ITEMS">
-              {filteredData.map((row, idx) => {
-                const title = getTitleField(row);
-                const type = getTypeField(row);
-                
-                return (
-                  <CommandItem
-                    key={idx}
-                    onSelect={() => {
-                      onRowSelect(row);
-                      onOpenChange(false);
-                    }}
-                    data-testid={`command-row-${idx}`}
-                  >
-                    <FileText className="mr-2 h-4 w-4 text-chart-2" />
-                    <span className="truncate font-medium">{title || `Item ${idx + 1}`}</span>
+        {search && filteredData.length === 0 && (
+          <CommandEmpty>
+            <div className="flex flex-col items-center py-6 text-muted-foreground font-mono">
+              <Terminal className="h-8 w-8 mb-2 opacity-50" />
+              <span className="text-sm">NO_RESULTS_FOUND</span>
+              <span className="text-xs text-muted-foreground mt-1">// Try a different search term</span>
+            </div>
+          </CommandEmpty>
+        )}
+
+        {search && filteredData.length > 0 && (
+          <CommandGroup heading={`RESULTS (${filteredData.length})`}>
+            {filteredData.map((row, idx) => {
+              const title = getTitleField(row);
+              const type = getTypeField(row);
+
+              return (
+                <CommandItem
+                  key={idx}
+                  onSelect={() => {
+                    onRowSelect(row);
+                    onOpenChange(false);
+                  }}
+                  data-testid={`command-row-${idx}`}
+                >
+                  <FileText className="mr-2 h-4 w-4 text-chart-2" />
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                    <span className="truncate font-medium text-sm">{title || `Item ${idx + 1}`}</span>
                     {type && (
-                      <span className="ml-2 text-muted-foreground text-xs truncate">
+                      <span className="text-muted-foreground text-xs truncate">
                         {type}
                       </span>
                     )}
-                  </CommandItem>
-                );
-              })}
+                  </div>
+                </CommandItem>
+              );
+            })}
+          </CommandGroup>
+        )}
+
+        {!search && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="COMMANDS">
+              <CommandItem
+                onSelect={() => {
+                  onRefresh();
+                  onOpenChange(false);
+                }}
+                data-testid="command-refresh"
+              >
+                <RefreshCw className="mr-2 h-4 w-4 text-primary" />
+                <span>Refresh Data</span>
+                <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  R
+                </kbd>
+              </CommandItem>
             </CommandGroup>
           </>
         )}
