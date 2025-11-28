@@ -43,18 +43,21 @@ export default function Console() {
       }
 
       const result = await response.json();
-
+      
+      let dataArray: Product[] = [];
+      
       if (Array.isArray(result) && result.length > 0) {
-        const cols = Object.keys(result[0]);
-        setColumns(cols);
-        setData(result);
-        if (!sortColumn && cols.length > 0) {
-          setSortColumn(cols[0]);
-        }
+        dataArray = result;
+      } else if (result.services && Array.isArray(result.services)) {
+        dataArray = result.services;
       } else if (result.data && Array.isArray(result.data)) {
-        const cols = Object.keys(result.data[0] || {});
+        dataArray = result.data;
+      }
+      
+      if (dataArray.length > 0) {
+        const cols = Object.keys(dataArray[0]);
         setColumns(cols);
-        setData(result.data);
+        setData(dataArray);
         if (!sortColumn && cols.length > 0) {
           setSortColumn(cols[0]);
         }
@@ -66,7 +69,7 @@ export default function Console() {
       setLastUpdated(new Date());
       toast({
         title: "DATA_SYNC_COMPLETE",
-        description: `Loaded ${Array.isArray(result) ? result.length : result.data?.length || 0} records`,
+        description: `Loaded ${dataArray.length} records`,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load data";
