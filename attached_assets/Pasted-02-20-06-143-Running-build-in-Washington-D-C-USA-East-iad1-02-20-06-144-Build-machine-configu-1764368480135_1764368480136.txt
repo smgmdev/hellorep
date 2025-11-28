@@ -1,0 +1,43 @@
+02:20:06.143 Running build in Washington, D.C., USA (East) – iad1
+02:20:06.144 Build machine configuration: 2 cores, 8 GB
+02:20:06.153 Cloning github.com/smgmdev/cc (Branch: main, Commit: 3ca35c9)
+02:20:06.154 Skipping build cache, deployment was triggered without cache.
+02:20:06.603 Cloning completed: 450.000ms
+02:20:06.965 Running "vercel build"
+02:20:07.369 Vercel CLI 48.12.0
+02:20:08.073 Installing dependencies...
+02:20:14.708 npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+02:20:14.736 npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+02:20:20.694 
+02:20:20.695 added 500 packages in 10s
+02:20:20.695 
+02:20:20.695 80 packages are looking for funding
+02:20:20.695   run `npm fund` for details
+02:20:20.872 
+02:20:20.873 > rest-express@1.0.0 build
+02:20:20.873 > tsx script/build.ts
+02:20:20.873 
+02:20:21.990 building client...
+02:20:22.073 [36mvite v5.4.20 [32mbuilding for production...[36m[39m
+02:20:22.690 transforming...
+02:20:23.882 
+02:20:23.883 A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+02:20:26.620 [32m✓[39m 1718 modules transformed.
+02:20:26.882 rendering chunks...
+02:20:26.892 computing gzip size...
+02:20:26.908 [2m../dist/public/[22m[32mindex.html                 [39m[1m[2m  2.23 kB[22m[1m[22m[2m │ gzip:   0.88 kB[22m
+02:20:26.909 [2m../dist/public/[22m[2massets/[22m[35mindex-COOefHwT.css  [39m[1m[2m 74.04 kB[22m[1m[22m[2m │ gzip:  11.84 kB[22m
+02:20:26.909 [2m../dist/public/[22m[2massets/[22m[36mindex-Dsbl79s8.js   [39m[1m[2m331.63 kB[22m[1m[22m[2m │ gzip: 107.11 kB[22m
+02:20:26.909 [32m✓ built in 4.57s[39m
+02:20:26.910 building server...
+02:20:27.030 
+02:20:27.032   dist/index.cjs  830.5kb
+02:20:27.032 
+02:20:27.032 ⚡ Done in 112ms
+02:20:27.115 Error: No entrypoint found. Searched for:
+02:20:27.116 - app.{js,cjs,mjs,ts,cts,mts}
+02:20:27.116 - index.{js,cjs,mjs,ts,cts,mts}
+02:20:27.116 - server.{js,cjs,mjs,ts,cts,mts}
+02:20:27.116 - src/app.{js,cjs,mjs,ts,cts,mts}
+02:20:27.117 - src/index.{js,cjs,mjs,ts,cts,mts}
+02:20:27.117 - src/server.{js,cjs,mjs,ts,cts,mts}
