@@ -1,29 +1,30 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { TerminalHeader } from "@/components/TerminalHeader";
-import { TerminalDataCard, type DataRow } from "@/components/TerminalDataCard";
-import { TerminalDataTable } from "@/components/TerminalDataTable";
+import { MediaHeader } from "@/components/MediaHeader";
+import { MediaSearchBar } from "@/components/MediaSearchBar";
+import { ProductCard, type Product } from "@/components/ProductCard";
+import { ProductDetailModal } from "@/components/ProductDetailModal";
 import { TerminalLoadingState, TerminalSplashLoading } from "@/components/TerminalLoadingState";
 import { TerminalEmptyState } from "@/components/TerminalEmptyState";
-import { TerminalDetailModal } from "@/components/TerminalDetailModal";
 import { TerminalFooter } from "@/components/TerminalFooter";
 import { CommandPalette } from "@/components/CommandPalette";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { TerminalDataTable } from "@/components/TerminalDataTable";
 
 const SHEETS_API_URL = "https://script.google.com/macros/s/AKfycbx0cDSTDNWMB4t-YTyI2oN8u_sraa_ZZOSuyo7mQfQ88QegUBTVzDGR2yG_QjIzFa_bEw/exec";
 
 export default function Console() {
-  const [data, setData] = useState<DataRow[]>([]);
+  const [data, setData] = useState<Product[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitial, setIsInitial] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"cards" | "table">("table");
+  const [view, setView] = useState<"cards" | "table">("cards");
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const [selectedRow, setSelectedRow] = useState<DataRow | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -91,13 +92,18 @@ export default function Console() {
         e.preventDefault();
         setCommandOpen(true);
       }
-      if (e.key === "r" && !commandOpen && !modalOpen) {
+      if (e.key === "r" && !commandOpen && !modalOpen && document.activeElement?.tagName !== "INPUT") {
         e.preventDefault();
         fetchData();
       }
-      if (e.key === "v" && !commandOpen && !modalOpen) {
+      if (e.key === "v" && !commandOpen && !modalOpen && document.activeElement?.tagName !== "INPUT") {
         e.preventDefault();
         setView((v) => (v === "cards" ? "table" : "cards"));
+      }
+      if (e.key === "/" && !commandOpen && !modalOpen && document.activeElement?.tagName !== "INPUT") {
+        e.preventDefault();
+        const searchInput = document.querySelector('[data-testid="input-media-search"]') as HTMLInputElement;
+        searchInput?.focus();
       }
     };
 
@@ -105,17 +111,33 @@ export default function Console() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [commandOpen, modalOpen, fetchData]);
 
+  const getTitleField = useCallback((product: Product): string => {
+    const titleKeys = ["title", "name", "product", "item", "media", "project"];
+    for (const key of titleKeys) {
+      for (const [k, v] of Object.entries(product)) {
+        if (k.toLowerCase().includes(key) && v !== undefined && v !== null && v !== "") {
+          return String(v);
+        }
+      }
+    }
+    return "";
+  }, []);
+
   const filteredData = useMemo(() => {
     if (!search.trim()) return data;
 
     const searchLower = search.toLowerCase();
-    return data.filter((row) =>
-      columns.some((col) => {
-        const value = row[col];
+    return data.filter((product) => {
+      const title = getTitleField(product);
+      if (title.toLowerCase().includes(searchLower)) {
+        return true;
+      }
+      return columns.some((col) => {
+        const value = product[col];
         return value !== undefined && value !== null && String(value).toLowerCase().includes(searchLower);
-      })
-    );
-  }, [data, search, columns]);
+      });
+    });
+  }, [data, search, columns, getTitleField]);
 
   const sortedData = useMemo(() => {
     if (!sortColumn) return filteredData;
@@ -141,8 +163,8 @@ export default function Console() {
     }
   };
 
-  const handleRowClick = (row: DataRow, index: number) => {
-    setSelectedRow(row);
+  const handleProductClick = (product: Product, index: number) => {
+    setSelectedProduct(product);
     setSelectedIndex(index);
     setModalOpen(true);
   };
@@ -164,13 +186,23 @@ export default function Console() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <TerminalHeader
+      <MediaHeader
         onRefresh={fetchData}
-        onOpenCommand={() => setCommandOpen(true)}
         isLoading={isLoading}
         lastUpdated={lastUpdated}
         recordCount={data.length}
       />
+
+      <div className="border-b border-border/50 bg-muted/20 px-4 py-3 md:px-6">
+        <MediaSearchBar
+          value={search}
+          onChange={handleSearch}
+          onOpenCommand={() => setCommandOpen(true)}
+          placeholder="Search by title... (press / to focus)"
+          resultCount={filteredData.length}
+          totalCount={data.length}
+        />
+      </div>
 
       <main className="flex-1 px-4 py-4 md:px-6 overflow-auto">
         <div className="mx-auto max-w-7xl">
@@ -187,6 +219,8 @@ export default function Console() {
             search ? (
               <TerminalEmptyState
                 type="no-results"
+                title="NO_MATCHES"
+                description={`// No items found matching "${search}"`}
                 onAction={() => setSearch("")}
                 actionLabel="CLEAR"
               />
@@ -198,14 +232,13 @@ export default function Console() {
               />
             )
           ) : currentView === "cards" ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {sortedData.map((row, idx) => (
-                <TerminalDataCard
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {sortedData.map((product, idx) => (
+                <ProductCard
                   key={idx}
-                  data={row}
-                  columns={columns}
+                  product={product}
                   index={idx}
-                  onClick={() => handleRowClick(row, idx)}
+                  onClick={() => handleProductClick(product, idx)}
                 />
               ))}
             </div>
@@ -216,7 +249,7 @@ export default function Console() {
               sortColumn={sortColumn}
               sortDirection={sortDirection}
               onSort={handleSort}
-              onRowClick={handleRowClick}
+              onRowClick={(row, idx) => handleProductClick(row, idx)}
             />
           )}
         </div>
@@ -240,17 +273,16 @@ export default function Console() {
         onViewChange={setView}
         onRowSelect={(row) => {
           const idx = data.indexOf(row);
-          handleRowClick(row, idx >= 0 ? idx : 0);
+          handleProductClick(row, idx >= 0 ? idx : 0);
         }}
         onSort={handleSort}
         currentView={view}
       />
 
-      <TerminalDetailModal
+      <ProductDetailModal
         open={modalOpen}
         onOpenChange={setModalOpen}
-        data={selectedRow}
-        columns={columns}
+        product={selectedProduct}
         index={selectedIndex}
       />
     </div>

@@ -14,10 +14,8 @@ import {
   LayoutGrid,
   TableIcon,
   ArrowUpDown,
-  Filter,
-  Download,
   Terminal,
-  Zap,
+  FileText,
 } from "lucide-react";
 
 export interface DataRow {
@@ -51,38 +49,65 @@ export function CommandPalette({
 }: CommandPaletteProps) {
   const [search, setSearch] = useState("");
 
+  const getTitleField = (row: DataRow): string => {
+    const titleKeys = ["title", "name", "product", "item", "media", "project"];
+    for (const key of titleKeys) {
+      for (const [k, v] of Object.entries(row)) {
+        if (k.toLowerCase().includes(key) && v !== undefined && v !== null && v !== "") {
+          return String(v);
+        }
+      }
+    }
+    return "";
+  };
+
+  const getTypeField = (row: DataRow): string => {
+    const typeKeys = ["type", "category", "genre", "format"];
+    for (const key of typeKeys) {
+      for (const [k, v] of Object.entries(row)) {
+        if (k.toLowerCase().includes(key) && v !== undefined && v !== null && v !== "") {
+          return String(v);
+        }
+      }
+    }
+    return "";
+  };
+
   const filteredData = useMemo(() => {
-    if (!search.trim()) return data.slice(0, 10);
+    if (!search.trim()) return data.slice(0, 15);
     const searchLower = search.toLowerCase();
     return data
-      .filter((row) =>
-        columns.some((col) => {
+      .filter((row) => {
+        const title = getTitleField(row);
+        if (title.toLowerCase().includes(searchLower)) {
+          return true;
+        }
+        return columns.some((col) => {
           const value = row[col];
           return value && String(value).toLowerCase().includes(searchLower);
-        })
-      )
-      .slice(0, 10);
+        });
+      })
+      .slice(0, 15);
   }, [data, search, columns]);
 
   useEffect(() => {
     if (!open) setSearch("");
   }, [open]);
 
-  const primaryColumn = columns[0] || "item";
-
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput
-        placeholder="Type a command or search..."
+        placeholder="Search by title or type a command..."
         value={search}
         onValueChange={setSearch}
         data-testid="input-command"
       />
       <CommandList>
         <CommandEmpty>
-          <div className="flex flex-col items-center py-6 text-muted-foreground">
+          <div className="flex flex-col items-center py-6 text-muted-foreground font-mono">
             <Terminal className="h-8 w-8 mb-2 opacity-50" />
-            <span>No results found.</span>
+            <span className="text-sm">NO_RESULTS_FOUND</span>
+            <span className="text-xs text-muted-foreground mt-1">// Try a different search term</span>
           </div>
         </CommandEmpty>
 
@@ -117,6 +142,22 @@ export function CommandPalette({
               V
             </kbd>
           </CommandItem>
+          <CommandItem
+            onSelect={() => {
+              onOpenChange(false);
+              setTimeout(() => {
+                const searchInput = document.querySelector('[data-testid="input-media-search"]') as HTMLInputElement;
+                searchInput?.focus();
+              }, 100);
+            }}
+            data-testid="command-focus-search"
+          >
+            <Search className="mr-2 h-4 w-4 text-primary" />
+            <span>Focus Search Bar</span>
+            <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+              /
+            </kbd>
+          </CommandItem>
         </CommandGroup>
 
         {columns.length > 0 && (
@@ -143,25 +184,30 @@ export function CommandPalette({
         {filteredData.length > 0 && (
           <>
             <CommandSeparator />
-            <CommandGroup heading="DATA">
-              {filteredData.map((row, idx) => (
-                <CommandItem
-                  key={idx}
-                  onSelect={() => {
-                    onRowSelect(row);
-                    onOpenChange(false);
-                  }}
-                  data-testid={`command-row-${idx}`}
-                >
-                  <Zap className="mr-2 h-4 w-4 text-chart-2" />
-                  <span className="truncate">{String(row[primaryColumn] || `Row ${idx + 1}`)}</span>
-                  {columns[1] && row[columns[1]] && (
-                    <span className="ml-2 text-muted-foreground text-xs truncate">
-                      {String(row[columns[1]])}
-                    </span>
-                  )}
-                </CommandItem>
-              ))}
+            <CommandGroup heading="MEDIA ITEMS">
+              {filteredData.map((row, idx) => {
+                const title = getTitleField(row);
+                const type = getTypeField(row);
+                
+                return (
+                  <CommandItem
+                    key={idx}
+                    onSelect={() => {
+                      onRowSelect(row);
+                      onOpenChange(false);
+                    }}
+                    data-testid={`command-row-${idx}`}
+                  >
+                    <FileText className="mr-2 h-4 w-4 text-chart-2" />
+                    <span className="truncate font-medium">{title || `Item ${idx + 1}`}</span>
+                    {type && (
+                      <span className="ml-2 text-muted-foreground text-xs truncate">
+                        {type}
+                      </span>
+                    )}
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </>
         )}
