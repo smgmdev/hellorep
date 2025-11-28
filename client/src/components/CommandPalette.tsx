@@ -27,7 +27,7 @@ interface DataSource {
   id: string;
   name: string;
   url: string;
-  type: "script" | "sheets";
+  type: "script" | "sheets" | "game";
 }
 
 interface CommandPaletteProps {
@@ -189,7 +189,10 @@ export function CommandPalette({
                     >
                       <Layers className="mr-2 h-4 w-4 text-accent" />
                       <span>&lt;{source.name}&gt;</span>
-                      {activeSourceId === source.id && (
+                      {source.type === "game" && (
+                        <span className="ml-auto text-xs text-muted-foreground">GAME</span>
+                      )}
+                      {activeSourceId === source.id && source.type !== "game" && (
                         <span className="ml-auto text-xs text-muted-foreground">✓ ACTIVE</span>
                       )}
                     </CommandItem>

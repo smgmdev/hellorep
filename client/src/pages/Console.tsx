@@ -23,7 +23,7 @@ interface DataSource {
   id: string;
   name: string;
   url: string;
-  type: "script" | "sheets";
+  type: "script" | "sheets" | "game";
 }
 
 const DEFAULT_SOURCES: DataSource[] = [
@@ -39,6 +39,12 @@ const DEFAULT_SOURCES: DataSource[] = [
     url: "https://docs.google.com/spreadsheets/d/1p2cGXEEdCoEG9hCBKEhxcQVCuiAhX9T5d87yrQ3H8BY/edit?gid=1786404372#gid=1786404372",
     type: "sheets",
   },
+  {
+    id: "playsolana",
+    name: "Play Solana",
+    url: "https://solanapricebet.com",
+    type: "game",
+  },
 ];
 
 export default function Console() {
@@ -51,6 +57,8 @@ export default function Console() {
   const [modalOpen, setModalOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [gameOpen, setGameOpen] = useState(false);
+  const [selectedGameUrl, setSelectedGameUrl] = useState<string>("");
 
   const [sources, setSources] = useState<DataSource[]>(DEFAULT_SOURCES);
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
@@ -189,8 +197,15 @@ export default function Console() {
   };
 
   const handleSelectSource = (sourceId: string) => {
-    setActiveSourceId(sourceId);
-    setCommandOpen(false);
+    const source = sources.find((s) => s.id === sourceId);
+    if (source?.type === "game") {
+      setSelectedGameUrl(source.url);
+      setGameOpen(true);
+      setCommandOpen(false);
+    } else {
+      setActiveSourceId(sourceId);
+      setCommandOpen(false);
+    }
   };
 
   const handleAddSource = () => {
@@ -385,6 +400,20 @@ export default function Console() {
         product={selectedProduct}
         index={selectedIndex}
       />
+
+      {/* Game Modal */}
+      <Dialog open={gameOpen} onOpenChange={setGameOpen}>
+        <DialogContent className="max-w-4xl h-[90vh] max-h-[90vh] p-0 font-mono" data-testid="dialog-game">
+          <iframe
+            src={selectedGameUrl}
+            title="Game"
+            className="w-full h-full border-0 rounded-lg"
+            allowFullScreen
+            referrerPolicy="no-referrer"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Settings Button - Bottom Right */}
       <Button
