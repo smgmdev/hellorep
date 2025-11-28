@@ -80,6 +80,13 @@ export function ProductDetailModal({
             {columns.map((col) => {
               const value = product[col];
               if (value === undefined || value === null || value === "") return null;
+              
+              // Hide image-related fields
+              const imageFieldNames = ["image", "img", "photo", "picture", "icon", "logo", "thumbnail"];
+              if (imageFieldNames.some(name => col.toLowerCase().includes(name))) {
+                return null;
+              }
+              
               const displayValue = String(value);
               const isUrl = displayValue.startsWith("http://") || displayValue.startsWith("https://");
               const isLongText = displayValue.length > 100;
