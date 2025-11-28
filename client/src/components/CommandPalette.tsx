@@ -101,6 +101,12 @@ export function CommandPalette({
         onValueChange={setSearch}
         data-testid="input-command"
       />
+      {/* Disable cmdk's built-in filtering - use our custom filter only */}
+      <input
+        type="hidden"
+        cmdk-input=""
+        style={{ display: "none" }}
+      />
       <CommandList>
         {!search && (
           <CommandEmpty>
