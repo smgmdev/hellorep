@@ -23,6 +23,7 @@ interface DataSource {
   id: string;
   name: string;
   url: string;
+  type: "script" | "sheets";
 }
 
 const DEFAULT_SOURCES: DataSource[] = [
@@ -30,13 +31,20 @@ const DEFAULT_SOURCES: DataSource[] = [
     id: "media",
     name: "Media",
     url: "https://script.google.com/macros/s/AKfycbx0cDSTDNWMB4t-YTyI2oN8u_sraa_ZZOSuyo7mQfQ88QegUBTVzDGR2yG_QjIzFa_bEw/exec",
+    type: "script",
+  },
+  {
+    id: "fashion",
+    name: "Fashion",
+    url: "https://docs.google.com/spreadsheets/d/1p2cGXEEdCoEG9hCBKEhxcQVCuiAhX9T5d87yrQ3H8BY/edit?gid=1786404372#gid=1786404372",
+    type: "sheets",
   },
 ];
 
 export default function Console() {
   const [data, setData] = useState<Product[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isInitial, setIsInitial] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
@@ -45,34 +53,75 @@ export default function Console() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [sources, setSources] = useState<DataSource[]>(DEFAULT_SOURCES);
-  const [activeSourceId, setActiveSourceId] = useState<string>("media");
+  const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
   const [newSourceName, setNewSourceName] = useState("");
   const [newSourceUrl, setNewSourceUrl] = useState("");
 
   const { toast } = useToast();
 
-  const activeSource = sources.find((s) => s.id === activeSourceId) || sources[0];
+  const activeSource = sources.find((s) => s.id === activeSourceId);
 
-  const fetchData = useCallback(async (sourceUrl?: string) => {
+  // Parse Google Sheets URL to get sheet ID
+  const parseSheetUrl = (url: string): string | null => {
+    const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    return match ? match[1] : null;
+  };
+
+  // Fetch from Google Sheets API (CSV export)
+  const fetchFromGoogleSheets = async (url: string): Promise<Product[]> => {
+    const sheetId = parseSheetUrl(url);
+    if (!sheetId) throw new Error("Invalid Google Sheets URL");
+
+    // Use CSV export endpoint
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+    const response = await fetch(csvUrl);
+    if (!response.ok) throw new Error("Failed to fetch sheet");
+
+    const csv = await response.text();
+    const lines = csv.trim().split("\n");
+    if (lines.length < 2) return [];
+
+    // Parse CSV headers
+    const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
+
+    // Parse rows
+    const rows: Product[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
+      const row: Product = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx] || "";
+      });
+      rows.push(row);
+    }
+
+    return rows;
+  };
+
+  const fetchData = useCallback(async (source?: DataSource) => {
+    const sourceToUse = source || activeSource;
+    if (!sourceToUse) return;
+
     setIsLoading(true);
 
     try {
-      const url = sourceUrl || activeSource.url;
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("Failed to fetch data");
-      }
-
-      const result = await response.json();
-
       let dataArray: Product[] = [];
 
-      if (Array.isArray(result) && result.length > 0) {
-        dataArray = result;
-      } else if (result.services && Array.isArray(result.services)) {
-        dataArray = result.services;
-      } else if (result.data && Array.isArray(result.data)) {
-        dataArray = result.data;
+      if (sourceToUse.type === "script") {
+        const response = await fetch(sourceToUse.url);
+        if (!response.ok) throw new Error("Failed to fetch data");
+
+        const result = await response.json();
+
+        if (Array.isArray(result) && result.length > 0) {
+          dataArray = result;
+        } else if (result.services && Array.isArray(result.services)) {
+          dataArray = result.services;
+        } else if (result.data && Array.isArray(result.data)) {
+          dataArray = result.data;
+        }
+      } else if (sourceToUse.type === "sheets") {
+        dataArray = await fetchFromGoogleSheets(sourceToUse.url);
       }
 
       if (dataArray.length > 0) {
@@ -83,7 +132,7 @@ export default function Console() {
 
       toast({
         title: "DATA_SYNC_COMPLETE",
-        description: `Loaded ${dataArray.length} records`,
+        description: `Loaded ${dataArray.length} records from ${sourceToUse.name}`,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load data";
@@ -98,8 +147,19 @@ export default function Console() {
     }
   }, [activeSource, toast]);
 
+  // Load media on initial load
   useEffect(() => {
-    fetchData();
+    setIsInitial(true);
+    setActiveSourceId("media");
+  }, []);
+
+  // Fetch when active source changes
+  useEffect(() => {
+    if (activeSourceId && !isInitial) {
+      fetchData();
+    } else if (activeSourceId && isInitial) {
+      fetchData();
+    }
   }, [activeSourceId]);
 
   useEffect(() => {
@@ -128,6 +188,11 @@ export default function Console() {
     setModalOpen(true);
   };
 
+  const handleSelectSource = (sourceId: string) => {
+    setActiveSourceId(sourceId);
+    setCommandOpen(false);
+  };
+
   const handleAddSource = () => {
     if (!newSourceName.trim() || !newSourceUrl.trim()) {
       toast({
@@ -138,16 +203,19 @@ export default function Console() {
       return;
     }
 
+    // Determine type based on URL
+    const type = newSourceUrl.includes("docs.google.com/spreadsheets") ? "sheets" : "script";
+
     const newSource: DataSource = {
       id: `source_${Date.now()}`,
       name: newSourceName,
       url: newSourceUrl,
+      type,
     };
 
     setSources([...sources, newSource]);
     setNewSourceName("");
     setNewSourceUrl("");
-    setActiveSourceId(newSource.id);
     toast({
       title: "SOURCE_ADDED",
       description: `${newSourceName} added successfully`,
@@ -182,6 +250,39 @@ export default function Console() {
     );
   }
 
+  // Category selection screen
+  if (!activeSourceId) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background gap-6 px-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+          <Command className="h-8 w-8 text-primary" />
+        </div>
+
+        <div className="space-y-2 max-w-sm text-center">
+          <h1 className="font-mono text-2xl font-semibold text-foreground tracking-tight">
+            SELECT_CATEGORY
+          </h1>
+          <p className="text-sm text-muted-foreground font-mono">
+            Choose a data source to search
+          </p>
+        </div>
+
+        <div className="flex gap-3">
+          {sources.map((source) => (
+            <Button
+              key={source.id}
+              onClick={() => handleSelectSource(source.id)}
+              className="font-mono"
+              data-testid={`button-select-${source.id}`}
+            >
+              &lt;{source.name}&gt;
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background">
       {/* Instruction Screen */}
@@ -195,7 +296,7 @@ export default function Console() {
             MEDIA_CONSOLE
           </h1>
           <p className="text-sm text-muted-foreground font-mono">
-            {activeSource.name}
+            {activeSource?.name}
           </p>
           <p className="text-sm text-muted-foreground font-mono">
             Press <kbd className="px-2 py-1 rounded bg-muted border border-border text-xs font-medium">⌘K</kbd> or <kbd className="px-2 py-1 rounded bg-muted border border-border text-xs font-medium">CTRL+K</kbd> to search
@@ -235,9 +336,9 @@ export default function Console() {
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Active Source Selection */}
+            {/* Data Sources */}
             <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wider">ACTIVE_SOURCE</Label>
+              <Label className="text-xs uppercase tracking-wider">DATA_SOURCES</Label>
               <div className="space-y-2">
                 {sources.map((source) => (
                   <div
@@ -253,8 +354,8 @@ export default function Console() {
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{source.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{source.url}</p>
+                        <p className="text-sm font-medium">{source.name}</p>
+                        <p className="text-xs text-muted-foreground">{source.type}</p>
                       </div>
                     </div>
                     {sources.length > 1 && (
@@ -288,7 +389,7 @@ export default function Console() {
                   data-testid="input-source-name"
                 />
                 <Input
-                  placeholder="Google Apps Script URL"
+                  placeholder="Google Apps Script or Sheets URL"
                   value={newSourceUrl}
                   onChange={(e) => setNewSourceUrl(e.target.value)}
                   className="font-mono text-sm"
@@ -324,6 +425,17 @@ export default function Console() {
         data-testid="button-settings"
       >
         <Settings className="h-5 w-5" />
+      </Button>
+
+      {/* Category Switch Button - Bottom Left */}
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => setActiveSourceId(null)}
+        className="fixed bottom-4 left-4 font-mono text-xs"
+        data-testid="button-switch-category"
+      >
+        SWITCH_CATEGORY
       </Button>
     </div>
   );
