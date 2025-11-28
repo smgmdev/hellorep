@@ -86,8 +86,7 @@ export function CommandPalette({
           const value = row[col];
           return value && String(value).toLowerCase().includes(searchLower);
         });
-      })
-      .slice(0, 15);
+      });
   }, [data, search, columns]);
 
   useEffect(() => {
