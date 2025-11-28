@@ -112,59 +112,21 @@ export default function Console() {
     return rows;
   };
 
-  // Fetch from trade website
+  // Fetch from trade website via backend
   const fetchTradeDeals = async (baseUrl: string): Promise<Product[]> => {
-    try {
-      // Try to fetch from an API endpoint first
-      const apiUrl = `${baseUrl}/api/deals`;
-      const response = await fetch(apiUrl);
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (Array.isArray(result)) return result;
-        if (result.deals && Array.isArray(result.deals)) return result.deals;
-        if (result.data && Array.isArray(result.data)) return result.data;
-      }
-    } catch (err) {
-      // If API fails, try alternative endpoint
+    const response = await fetch("/api/fetch-trades", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ baseUrl }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to fetch trade deals");
     }
 
-    // Try alternative API endpoint
-    try {
-      const altUrl = `${baseUrl}/api/trade-deals`;
-      const response = await fetch(altUrl);
-      if (response.ok) {
-        const result = await response.json();
-        if (Array.isArray(result)) return result;
-        if (result.deals && Array.isArray(result.deals)) return result.deals;
-        if (result.data && Array.isArray(result.data)) return result.data;
-      }
-    } catch (err) {
-      // Continue to next attempt
-    }
-
-    // Try main endpoint as JSON
-    try {
-      const response = await fetch(baseUrl);
-      if (response.ok) {
-        const text = await response.text();
-        // Try to extract JSON from the page
-        const jsonMatch = text.match(/window\.__DATA__\s*=\s*({[\s\S]*?});/) ||
-                         text.match(/<script[^>]*>([\s\S]*?"deals"[\s\S]*?)<\/script>/i);
-        
-        if (jsonMatch) {
-          const jsonStr = jsonMatch[1] || jsonMatch[0];
-          const data = JSON.parse(jsonStr);
-          if (data.deals && Array.isArray(data.deals)) return data.deals;
-          if (data.data && Array.isArray(data.data)) return data.data;
-          if (Array.isArray(data)) return data;
-        }
-      }
-    } catch (err) {
-      console.error("Failed to parse trade data:", err);
-    }
-
-    throw new Error("Could not fetch trade deals from the website");
+    const result = await response.json();
+    return Array.isArray(result) ? result : [];
   };
 
   const fetchData = useCallback(async (source?: DataSource) => {
