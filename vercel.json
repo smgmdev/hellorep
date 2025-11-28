@@ -1,4 +1,10 @@
 {
+  "public": "dist/public",
   "buildCommand": "npm run build",
-  "framework": "express"
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
+  ]
 }
