@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build",
+  "startCommand": "npm start",
+  "outputDirectory": "dist/public",
+  "framework": "express",
+  "nodeVersion": "20.x",
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
