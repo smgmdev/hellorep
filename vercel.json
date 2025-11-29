@@ -1,4 +1,3 @@
 {
-  "public": "dist/public",
-  "buildCommand": "npm run build"
+  "root": "client"
 }
